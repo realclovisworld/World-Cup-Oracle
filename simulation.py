@@ -11,8 +11,20 @@ import random
 from worldcup2026 import WC2026_TEAMS, GROUPS, WCTeam
 
 NUM_SIMULATIONS = 10_000
-BASE_XG = 1.25  # average goals per team per game
-ELO_SCALE = 400  # Elo scale factor
+BASE_XG = 1.25  # average goals per team per game (fallback formula only)
+ELO_SCALE = 400  # Elo scale factor (fallback formula only)
+
+# The trained Poisson-regression goal model. When set (see set_goal_model),
+# expected goals come from the machine-learning model instead of the hand-coded
+# fallback formula below. Injected at runtime so this module has no hard
+# dependency on scikit-learn when used standalone.
+_GOAL_MODEL = None
+
+
+def set_goal_model(model) -> None:
+    """Install the trained Poisson regression as the expected-goals source."""
+    global _GOAL_MODEL
+    _GOAL_MODEL = model
 
 
 # ---------- Math helpers ----------
@@ -33,7 +45,14 @@ def poisson_sample(lam: float) -> int:
 
 
 def expected_goals(elo_a: float, elo_b: float) -> tuple[float, float]:
-    """Convert an Elo gap into expected goals for each side."""
+    """Convert an Elo gap into expected goals for each side.
+
+    Uses the trained Poisson-regression model when one has been installed via
+    set_goal_model(); otherwise falls back to the original hand-coded formula.
+    """
+    if _GOAL_MODEL is not None:
+        return _GOAL_MODEL.expected_goals(elo_a, elo_b)
+
     diff = (elo_a - elo_b) / ELO_SCALE
     mult = 10 ** diff
     ratio = min(max(math.sqrt(mult), 0.33), 3)  # cap dominance

@@ -110,21 +110,42 @@ def _parse_csv(raw: str) -> list[dict]:
     return rows
 
 
-def compute_elo_ratings() -> tuple[dict[str, float], int]:
-    """Replay all matches in date order and return {team: rating}, match_count."""
+def compute_elo_ratings(record_history: bool = False):
+    """Replay all matches in date order and return {team: rating}, match_count.
+
+    If ``record_history`` is True, also return a third value: a list of
+    pre-match snapshots (each team's Elo *as it stood on match day*, before the
+    result was applied) alongside the final score. That snapshot is exactly the
+    training data the Poisson regression learns from — using the rating at the
+    time of the match avoids leaking future information into the features.
+    """
     raw = _download_csv()
     rows = _parse_csv(raw)
     rows.sort(key=lambda r: r["date"])
 
     ratings: dict[str, float] = {}
+    history: list[dict] | None = [] if record_history else None
 
     def get_rating(team: str) -> float:
         return ratings.setdefault(team, 1000.0)
 
     for r in rows:
+        home_elo = get_rating(r["home_team"])
+        away_elo = get_rating(r["away_team"])
+        if history is not None:
+            history.append(
+                {
+                    "home_elo": home_elo,
+                    "away_elo": away_elo,
+                    "neutral": r["neutral"],
+                    "home_score": r["home_score"],
+                    "away_score": r["away_score"],
+                }
+            )
+
         home_adv = 0 if r["neutral"] else 75
-        r_a = get_rating(r["home_team"]) + home_adv
-        r_b = get_rating(r["away_team"])
+        r_a = home_elo + home_adv
+        r_b = away_elo
 
         expected_a = expected_score(r_a, r_b)
         expected_b = 1 - expected_a
@@ -141,9 +162,11 @@ def compute_elo_ratings() -> tuple[dict[str, float], int]:
         # Goal-difference multiplier (FIFA-style), capped at 1.75x.
         gd_mult = 1.0 if goal_diff <= 1 else 1.5 if goal_diff == 2 else 1.75
 
-        ratings[r["home_team"]] = get_rating(r["home_team"]) + k * gd_mult * (actual_a - expected_a)
-        ratings[r["away_team"]] = get_rating(r["away_team"]) + k * gd_mult * (actual_b - expected_b)
+        ratings[r["home_team"]] = home_elo + k * gd_mult * (actual_a - expected_a)
+        ratings[r["away_team"]] = away_elo + k * gd_mult * (actual_b - expected_b)
 
+    if history is not None:
+        return ratings, len(rows), history
     return ratings, len(rows)
 
 

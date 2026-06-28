@@ -15,7 +15,8 @@ import argparse
 import sys
 
 from elo import compute_elo_ratings, get_wc_team_ratings
-from simulation import match_probabilities, run_simulations
+from poisson_model import train_poisson_model
+from simulation import match_probabilities, run_simulations, set_goal_model
 from worldcup2026 import WC2026_TEAMS, find_team
 
 
@@ -121,9 +122,14 @@ def main() -> None:
     global RATINGS, SIM, NUM_SIMS
     NUM_SIMS = args.sims
 
-    all_ratings, match_count = compute_elo_ratings()
+    all_ratings, match_count, history = compute_elo_ratings(record_history=True)
     RATINGS = get_wc_team_ratings(all_ratings)
     print(f"Computed Elo from {match_count:,} historical matches.")
+
+    # Train the Poisson-regression goal model on those same matches and use it
+    # as the expected-goals engine for every simulated and predicted fixture.
+    model = train_poisson_model(history)
+    set_goal_model(model)
 
     print(f"Running {NUM_SIMS:,} Monte Carlo tournament simulations...")
     SIM = run_simulations(RATINGS, NUM_SIMS)
