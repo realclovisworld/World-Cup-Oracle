@@ -131,6 +131,22 @@ vars: `WC_SIMS` (simulations per tournament; lower it on small instances),
 `WC_RESULTS_TTL` (dataset re-check window, seconds), `WC_CACHE_DIR` (writable
 cache dir — the image sets it to `/tmp`).
 
+### Static snapshot (Vercel / any static host)
+
+The live backend can't run on serverless (Vercel/Lambda). For those, build a
+**static snapshot**: precompute the data, and the frontend reads it directly
+with head-to-head computed in the browser — no functions, no cold start.
+
+```bash
+python scripts/build_data.py     # -> frontend/public/data/*.json
+```
+
+Commit the generated JSON. `vercel.json` + `.vercelignore` are set up so Vercel
+builds only the frontend (the Python code is excluded, so no serverless
+functions are created). Deploy: push, then import the repo on Vercel — it reads
+`vercel.json` and outputs `frontend/dist`. The trade-off is that it's a snapshot
+(no live *Re-run* / *Refresh*); re-run `build_data.py` and redeploy to update it.
+
 ## Live tournament results
 
 `live_results.csv` holds played and upcoming 2026 matches. Completed matches

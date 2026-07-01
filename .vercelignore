@@ -1,0 +1,15 @@
+# Static build for Vercel — ship only the frontend. Excluding the Python code
+# ensures Vercel does NOT turn api/*.py into serverless functions (which can't
+# run this app). The odds/bracket/teams are precomputed into
+# frontend/public/data/*.json by scripts/build_data.py.
+api/
+scripts/
+*.py
+requirements.txt
+.venv/
+Dockerfile
+.dockerignore
+render.yaml
+fly.toml
+live_results.csv
+.cache_results.csv*

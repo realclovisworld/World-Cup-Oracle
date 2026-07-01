@@ -223,9 +223,23 @@ def rerun_simulation(background_tasks: BackgroundTasks, n_sims: int = 10_000):
 
 
 # ── Static file serving ───────────────────────────────────────────────────────
-# Mounted after the API routes so /api/* takes precedence. Only present once the
-# frontend has been built (Phase 8).
+# Mounted after the API routes so /api/* takes precedence. StaticFiles(html=True)
+# serves index.html at "/" and for unknown paths (SPA routing). Present only once
+# the frontend has been built into frontend/dist.
 
 DIST = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
-if os.path.isdir(DIST):
+if os.path.isfile(os.path.join(DIST, "index.html")):
     app.mount("/", StaticFiles(directory=DIST, html=True), name="static")
+else:
+    # The API works but the SPA wasn't built. This happens when the host used a
+    # Python-only buildpack instead of the Dockerfile (which runs `npm run build`).
+    print(f"WARNING: {DIST}/index.html not found — frontend will not be served.")
+
+    @app.get("/")
+    def _frontend_missing():
+        raise HTTPException(
+            503,
+            "Frontend not built: frontend/dist/index.html is missing. Deploy with "
+            "the included Dockerfile (it runs `npm run build`), not a Python-only "
+            "buildpack. The API itself is live at /api/* and /docs. See README > Deploy.",
+        )

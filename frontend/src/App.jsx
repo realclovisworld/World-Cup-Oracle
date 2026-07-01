@@ -1,12 +1,6 @@
-// App shell — data loading, status polling, layout (IMPLEMENTATION.md §Phase 7).
+// App shell — loads the precomputed static snapshot and lays out the page.
 import { useState, useEffect, useCallback } from 'react'
-import {
-  fetchOdds,
-  fetchTeams,
-  fetchBracket,
-  fetchStatus,
-  triggerRerun,
-} from './api'
+import { fetchOdds, fetchTeams, fetchBracket, fetchStatus } from './api'
 import Header from './components/Header'
 import OddsTable from './components/OddsTable'
 import HeadToHead from './components/HeadToHead'
@@ -37,49 +31,9 @@ export default function App() {
     }
   }, [])
 
-  // Initial load: poll status until ready, then fetch the data.
   useEffect(() => {
-    let cancelled = false
-    const boot = async () => {
-      try {
-        let s = await fetchStatus()
-        while (!s.ready && !cancelled) {
-          await new Promise((r) => setTimeout(r, 2000))
-          s = await fetchStatus()
-        }
-        if (!cancelled) load()
-      } catch (e) {
-        if (!cancelled) setError(e.message)
-      }
-    }
-    boot()
-    return () => {
-      cancelled = true
-    }
+    load()
   }, [load])
-
-  // Poll status while a re-run is in progress, then reload data.
-  useEffect(() => {
-    if (!status?.running) return
-    const id = setInterval(async () => {
-      const s = await fetchStatus()
-      setStatus(s)
-      if (!s.running) {
-        clearInterval(id)
-        load()
-      }
-    }, 2000)
-    return () => clearInterval(id)
-  }, [status?.running, load])
-
-  const handleRerun = async () => {
-    try {
-      await triggerRerun(10_000)
-      setStatus((s) => ({ ...s, running: true }))
-    } catch (e) {
-      setError(e.message)
-    }
-  }
 
   if (error) {
     return <div style={{ padding: '2rem', color: 'var(--text-danger)' }}>{error}</div>
@@ -108,7 +62,6 @@ export default function App() {
         nSims={status.n_sims}
         cachedAt={status.cached_at}
         running={status.running}
-        onRerun={handleRerun}
         lastResultDate={status.last_result_date}
       />
 

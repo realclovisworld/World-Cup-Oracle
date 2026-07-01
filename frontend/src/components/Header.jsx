@@ -38,9 +38,11 @@ export default function Header({ nSims, cachedAt, running, onRerun, lastResultDa
           <span style={{ fontSize: 12, color: 'var(--text-muted)' }} aria-live="polite">
             {chip}
           </span>
-          <button onClick={onRerun} disabled={running} aria-label="Re-run simulation">
-            ↻ Re-run
-          </button>
+          {onRerun && (
+            <button onClick={onRerun} disabled={running} aria-label="Re-run simulation">
+              ↻ Re-run
+            </button>
+          )}
         </div>
         {lastResultDate && (
           <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
