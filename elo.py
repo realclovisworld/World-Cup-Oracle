@@ -9,6 +9,7 @@ import csv
 import io
 import os
 import ssl
+import tempfile
 import time
 import urllib.error
 import urllib.request
@@ -19,7 +20,25 @@ from worldcup2026 import WC2026_TEAMS
 # (new matches, including live 2026 results, land via pull requests). We cache it
 # locally but re-check upstream once the cache goes stale so those updates flow in.
 CSV_URL = "https://raw.githubusercontent.com/martj42/international_results/master/results.csv"
-CACHE_PATH = os.path.join(os.path.dirname(__file__), ".cache_results.csv")
+
+
+def _cache_dir() -> str:
+    """A writable directory for the dataset cache.
+
+    Prefer WC_CACHE_DIR, then the app directory when it's writable; fall back to
+    the system temp dir on read-only filesystems (e.g. serverless hosts where
+    only /tmp is writable). Without this, the cache write raises OSError.
+    """
+    override = os.environ.get("WC_CACHE_DIR")
+    if override:
+        return override
+    app_dir = os.path.dirname(__file__)
+    if os.access(app_dir, os.W_OK):
+        return app_dir
+    return tempfile.gettempdir()
+
+
+CACHE_PATH = os.path.join(_cache_dir(), ".cache_results.csv")
 ETAG_PATH = CACHE_PATH + ".etag"
 
 # How long a cached copy is trusted before we re-check upstream. Override with

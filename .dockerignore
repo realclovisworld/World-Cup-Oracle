@@ -1,0 +1,25 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+
+# Cached dataset (fetched at runtime)
+.cache_results.csv*
+
+# Frontend build inputs/outputs — deps reinstalled and dist rebuilt in-image
+frontend/node_modules/
+frontend/dist/
+
+# VCS / tooling / hosts
+.git/
+.gitignore
+.vercel/
+.DS_Store
+.idea/
+.vscode/
+
+# Docs (not needed at runtime)
+*.md
+!README.md

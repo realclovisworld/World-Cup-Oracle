@@ -6,9 +6,8 @@ modules (per-stage tally dict, display-name-keyed ratings, Elo-based
 match_probabilities).
 """
 
-import asyncio
-import concurrent.futures
 import os
+import threading
 from contextlib import asynccontextmanager
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException
@@ -43,12 +42,17 @@ _STAGE_KEYS = {
 
 # ── Startup ───────────────────────────────────────────────────────────────────
 
+# Simulations per tournament — lower it on small/free hosts with WC_SIMS.
+_SIMS = int(os.environ.get("WC_SIMS", 10_000))
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Run the (blocking) cold start in a thread so the event loop is free.
-    loop = asyncio.get_event_loop()
-    with concurrent.futures.ThreadPoolExecutor() as pool:
-        await loop.run_in_executor(pool, lambda: initialise(n_sims=10_000))
+    # Kick off the cold start in a background thread and return immediately, so
+    # the server accepts connections (and health checks pass) while the pipeline
+    # warms up. /api/status reports ready=false until it finishes; the frontend
+    # shows its loading screen in the meantime.
+    threading.Thread(target=lambda: initialise(n_sims=_SIMS), daemon=True).start()
     yield
 
 

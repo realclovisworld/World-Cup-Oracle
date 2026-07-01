@@ -110,6 +110,27 @@ cd frontend && npm run dev      # proxies /api/* to :8000
 
 Interactive docs are auto-generated at <http://localhost:8000/docs>.
 
+## Deploy
+
+This is a **stateful server**, not a set of serverless functions: it runs the
+Elo → Poisson → Monte Carlo pipeline once on boot and keeps the result warm in
+memory. Deploy it on a host that runs a long-lived process — **Render, Railway,
+or Fly.io** — not on serverless platforms (Vercel/Lambda), where the cold-start
+pipeline exceeds time/memory limits and in-memory state doesn't persist.
+
+A `Dockerfile` builds the frontend and serves everything from one container:
+
+- **Render** — push to GitHub, then *New → Blueprint* pointed at this repo
+  (`render.yaml` is included). Health check: `/api/status`.
+- **Railway** — *New Project → Deploy from repo*; it auto-detects the `Dockerfile`.
+- **Fly.io** — `fly launch --no-deploy` once, then `fly deploy` (`fly.toml` included).
+
+The pipeline warms up in the background, so the container is reachable
+immediately; `/api/status` reports `ready:false` until it finishes. Useful env
+vars: `WC_SIMS` (simulations per tournament; lower it on small instances),
+`WC_RESULTS_TTL` (dataset re-check window, seconds), `WC_CACHE_DIR` (writable
+cache dir — the image sets it to `/tmp`).
+
 ## Live tournament results
 
 `live_results.csv` holds played and upcoming 2026 matches. Completed matches

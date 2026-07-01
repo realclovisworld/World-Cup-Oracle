@@ -1,0 +1,15 @@
+# Render Blueprint — https://render.com/docs/blueprint-spec
+# Deploy: push to GitHub, then New > Blueprint and point it at this repo.
+services:
+  - type: web
+    name: world-cup-oracle
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free            # 512 MB RAM; bump to "starter" if the pipeline OOMs
+    healthCheckPath: /api/status
+    autoDeploy: true
+    envVars:
+      - key: WC_SIMS
+        value: "10000"    # lower (e.g. 3000) for a faster/lighter cold start
+      - key: WC_RESULTS_TTL
+        value: "43200"    # re-check the historical dataset every 12h
