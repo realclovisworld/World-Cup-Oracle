@@ -9,12 +9,22 @@ import csv
 import io
 import os
 import ssl
+import time
+import urllib.error
 import urllib.request
 
 from worldcup2026 import WC2026_TEAMS
 
+# martj42/international_results is community-maintained and updated continuously
+# (new matches, including live 2026 results, land via pull requests). We cache it
+# locally but re-check upstream once the cache goes stale so those updates flow in.
 CSV_URL = "https://raw.githubusercontent.com/martj42/international_results/master/results.csv"
 CACHE_PATH = os.path.join(os.path.dirname(__file__), ".cache_results.csv")
+ETAG_PATH = CACHE_PATH + ".etag"
+
+# How long a cached copy is trusted before we re-check upstream. Override with
+# the WC_RESULTS_TTL env var (seconds); set WC_RESULTS_REFRESH=1 to force a check.
+CACHE_TTL_SECONDS = int(os.environ.get("WC_RESULTS_TTL", 12 * 3600))
 
 
 def k_factor(tournament: str) -> float:
@@ -62,26 +72,86 @@ def _ssl_context() -> ssl.SSLContext:
         return ssl._create_unverified_context()
 
 
-def _download_csv() -> str:
-    if os.path.exists(CACHE_PATH):
-        with open(CACHE_PATH, "r", encoding="utf-8") as f:
-            return f.read()
-    print("Downloading international results CSV (~49k matches)...")
-    try:
-        with urllib.request.urlopen(CSV_URL, timeout=60, context=_ssl_context()) as resp:
-            raw = resp.read().decode("utf-8")
-    except urllib.error.URLError as e:
-        if isinstance(e.reason, ssl.SSLCertVerificationError):
-            # Last resort: this host's Python has no usable CA bundle.
-            with urllib.request.urlopen(
-                CSV_URL, timeout=60, context=ssl._create_unverified_context()
-            ) as resp:
-                raw = resp.read().decode("utf-8")
-        else:
-            raise
+def _read_cache() -> str:
+    with open(CACHE_PATH, "r", encoding="utf-8") as f:
+        return f.read()
+
+
+def _write_cache(raw: str, etag: str | None) -> None:
     with open(CACHE_PATH, "w", encoding="utf-8") as f:
         f.write(raw)
-    return raw
+    if etag:
+        with open(ETAG_PATH, "w", encoding="utf-8") as f:
+            f.write(etag)
+
+
+def _cache_fresh() -> bool:
+    if not os.path.exists(CACHE_PATH):
+        return False
+    return (time.time() - os.path.getmtime(CACHE_PATH)) < CACHE_TTL_SECONDS
+
+
+def _http_get(headers: dict):
+    """GET CSV_URL, retrying without TLS verification only if the host's Python
+    has no usable CA bundle (some macOS builds)."""
+    req = urllib.request.Request(CSV_URL, headers=headers)
+    try:
+        return urllib.request.urlopen(req, timeout=60, context=_ssl_context())
+    except urllib.error.URLError as e:
+        if isinstance(e.reason, ssl.SSLCertVerificationError):
+            return urllib.request.urlopen(req, timeout=60, context=ssl._create_unverified_context())
+        raise
+
+
+def _download_csv(force: bool = False) -> str:
+    """Return the results CSV, refreshing the cache when it has gone stale.
+
+    - No cache -> download in full.
+    - Fresh cache (within CACHE_TTL_SECONDS) -> use it, no network.
+    - Stale cache -> conditional GET (If-None-Match). A 304 keeps the cache and
+      resets its clock; a 200 replaces it. Any network error falls back to the
+      cached copy so the app still runs offline.
+    """
+    force = force or os.environ.get("WC_RESULTS_REFRESH", "").strip() not in ("", "0")
+    have_cache = os.path.exists(CACHE_PATH)
+    if have_cache and _cache_fresh() and not force:
+        return _read_cache()
+
+    headers = {"User-Agent": "world-cup-oracle"}
+    if have_cache and os.path.exists(ETAG_PATH):
+        etag = _read_etag()
+        if etag:
+            headers["If-None-Match"] = etag
+
+    print(
+        "Checking martj42/international_results for updates..."
+        if have_cache
+        else "Downloading international results CSV (~49k matches)..."
+    )
+    try:
+        with _http_get(headers) as resp:
+            raw = resp.read().decode("utf-8")
+            _write_cache(raw, resp.headers.get("ETag"))
+            return raw
+    except urllib.error.HTTPError as e:
+        if e.code == 304 and have_cache:
+            os.utime(CACHE_PATH, None)  # unchanged upstream — reset freshness clock
+            return _read_cache()
+        if have_cache:
+            return _read_cache()
+        raise
+    except urllib.error.URLError:
+        if have_cache:
+            return _read_cache()  # offline — use whatever we have
+        raise
+
+
+def _read_etag() -> str:
+    try:
+        with open(ETAG_PATH, "r", encoding="utf-8") as f:
+            return f.read().strip()
+    except OSError:
+        return ""
 
 
 def _parse_csv(raw: str) -> list[dict]:
@@ -110,8 +180,10 @@ def _parse_csv(raw: str) -> list[dict]:
     return rows
 
 
-def compute_elo_ratings(record_history: bool = False):
+def compute_elo_ratings(record_history: bool = False, force_refresh: bool = False):
     """Replay all matches in date order and return {team: rating}, match_count.
+
+    ``force_refresh`` re-checks the upstream dataset regardless of cache age.
 
     If ``record_history`` is True, also return a third value: a list of
     pre-match snapshots (each team's Elo *as it stood on match day*, before the
@@ -119,7 +191,7 @@ def compute_elo_ratings(record_history: bool = False):
     training data the Poisson regression learns from — using the rating at the
     time of the match avoids leaking future information into the features.
     """
-    raw = _download_csv()
+    raw = _download_csv(force=force_refresh)
     rows = _parse_csv(raw)
     rows.sort(key=lambda r: r["date"])
 

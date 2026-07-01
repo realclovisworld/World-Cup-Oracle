@@ -1,0 +1,84 @@
+/* Global tokens + resets (IMPLEMENTATION.md §Phase 4 / DESIGN.md §3).
+   Token values are fixed — do not change. */
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --surface-0: #f5f4f0;
+  --surface-1: #eeece6;
+  --surface-2: #ffffff;
+  --text-primary:   #1a1917;
+  --text-secondary: #5a5855;
+  --text-muted:     #8a8784;
+  --text-accent:    #185fa5;
+  --text-danger:    #a32d2d;
+  --border:         rgba(0,0,0,0.10);
+  --border-strong:  rgba(0,0,0,0.18);
+  --border-accent:  #378ADD;
+  --bg-accent:      #e6f1fb;
+  --radius:         8px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --surface-0: #1a1917;
+    --surface-1: #242220;
+    --surface-2: #2e2c2a;
+    --text-primary:   #f0ede8;
+    --text-secondary: #b0ada8;
+    --text-muted:     #7a7774;
+    --text-accent:    #85b7eb;
+    --text-danger:    #f09595;
+    --border:         rgba(255,255,255,0.10);
+    --border-strong:  rgba(255,255,255,0.18);
+    --border-accent:  #378ADD;
+    --bg-accent:      #0c447c;
+  }
+}
+
+body {
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 16px;
+  background: var(--surface-0);
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+  background: transparent;
+  border: 0.5px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: 6px 14px;
+  color: var(--text-primary);
+}
+button:hover  { background: var(--surface-1); }
+button:active { transform: scale(0.98); }
+button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+select {
+  font: inherit;
+  background: var(--surface-2);
+  border: 0.5px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: 6px 10px;
+  color: var(--text-primary);
+  width: 100%;
+}
+
+.card {
+  background: var(--surface-2);
+  border: 0.5px solid var(--border);
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+}
+
+/* Keep grid tracks honest: without this, a wide child (the odds table) blows
+   its 1fr track past equal width and crushes the sibling column. */
+.two-col > * { min-width: 0; }
+
+/* Two-column top row collapses below 768px (DESIGN.md §7). */
+@media (max-width: 767px) {
+  .two-col { grid-template-columns: 1fr !important; }
+}

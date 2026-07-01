@@ -1,4 +1,23 @@
+# Python
 __pycache__/
 *.pyc
-.cache_results.csv
 .venv/
+*.egg-info/
+.pytest_cache/
+
+# Cached historical results dataset + its ETag (re-downloaded on demand)
+.cache_results.csv*
+
+# Frontend
+node_modules/
+frontend/dist/
+*.local
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+# Docs — keep only README.md tracked
+*.md
+!README.md

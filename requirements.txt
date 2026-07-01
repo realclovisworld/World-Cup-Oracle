@@ -1,6 +1,9 @@
-# Machine-learning goal model (Poisson regression) + its numeric backend.
-scikit-learn>=1.4
-numpy>=1.24
-# Optional: TLS root certificates for downloading the historical results CSV
-# on macOS Python builds that ship without a usable CA bundle.
-certifi
+# Web layer (IMPLEMENTATION.md §Phase 1.1)
+fastapi>=0.111.0
+uvicorn[standard]>=0.29.0
+requests>=2.31.0
+
+# Existing model layer — required by the read-only model files.
+scikit-learn>=1.4.0
+numpy>=1.24          # poisson_model.py imports numpy directly
+certifi              # elo.py TLS fallback for macOS Python without a CA bundle

@@ -1,0 +1,17 @@
+// 3-letter team code -> ISO 3166 country for flagcdn.
+// Built from this project's actual WCTeam codes (worldcup2026.py).
+export const FLAG_ISO = {
+  MEX: 'mx', RSA: 'za', KOR: 'kr', CZE: 'cz', CAN: 'ca', BIH: 'ba',
+  QAT: 'qa', SUI: 'ch', BRA: 'br', MAR: 'ma', HAI: 'ht', SCO: 'gb-sct',
+  USA: 'us', PAR: 'py', AUS: 'au', TUR: 'tr', GER: 'de', CUW: 'cw',
+  CIV: 'ci', ECU: 'ec', NED: 'nl', JPN: 'jp', SWE: 'se', TUN: 'tn',
+  BEL: 'be', EGY: 'eg', IRN: 'ir', NZL: 'nz', ESP: 'es', CPV: 'cv',
+  KSA: 'sa', URU: 'uy', FRA: 'fr', SEN: 'sn', IRQ: 'iq', NOR: 'no',
+  ARG: 'ar', ALG: 'dz', AUT: 'at', JOR: 'jo', POR: 'pt', COD: 'cd',
+  UZB: 'uz', COL: 'co', ENG: 'gb-eng', CRO: 'hr', GHA: 'gh', PAN: 'pa',
+}
+
+export const flagUrl = (code) => {
+  const iso = FLAG_ISO[code]
+  return iso ? `https://flagcdn.com/w40/${iso}.png` : ''
+}
